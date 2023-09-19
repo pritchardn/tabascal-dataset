@@ -9,6 +9,8 @@ from tabascal.utils.sky import generate_random_sky
 from tabascal.utils.tools import load_antennas
 from tqdm import tqdm
 
+from utils import write_config_file, load_config_file
+
 
 def get_default_config():
     return {
