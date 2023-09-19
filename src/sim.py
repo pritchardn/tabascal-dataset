@@ -27,7 +27,7 @@ def get_default_config():
         "SEFD": 420.0,
         "n_int_samples": 4,
         "max_chunk_MB": 100.0,
-        "n_src": 10000,
+        "n_src": 1000,
         "max_I": 1.0,
         "num_satellites": 2,
         "satellite_rfi_amp": 1.0,
@@ -228,7 +228,7 @@ def plot_examples(data, masks, output_dir, num_examples=5):
         plt.savefig(os.path.join(output_dir, f"example_{i}.png"))
 
 
-def main(config: dict):
+def run_simulation(config: dict):
     output_dir = "./outputs"
     times, freqs, rng = setup_environment(
         config["t_0"],
@@ -283,4 +283,4 @@ def main(config: dict):
 
 if __name__ == "__main__":
     config = get_default_config()
-    main(config)
+    run_simulation(config)
