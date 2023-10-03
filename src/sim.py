@@ -1,5 +1,6 @@
 import os
 import pickle
+from time import sleep
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,7 +10,7 @@ from tabascal.utils.sky import generate_random_sky
 from tabascal.utils.tools import load_antennas
 from tqdm import tqdm
 
-from utils import write_config_file, load_config_file
+from utils import load_config_file
 
 
 def get_default_config():
@@ -191,6 +192,42 @@ def calculate_visibilities(obs: Observation):
     obs.calculate_vis()
 
 
+def convert_save_data(
+    obs: Observation,
+    num_baselines: int,
+    rng: np.random.Generator,
+    dataset_name,
+    output_dir,
+):
+    print("Converting data to TF format")
+    baselines = sorted(rng.choice(obs.n_bl, size=num_baselines, replace=False))
+    vis = obs.vis_obs[:, baselines, :].compute()
+    data = []
+    for i in range(num_baselines):
+        data.append(np.abs(vis[i]))
+    data = np.expand_dims(np.array(data), axis=-1)
+    print("Saving observation as TF dataset")
+    filename = dataset_name + "_data"
+    save_path = os.path.join(output_dir, filename)
+    with open(save_path + ".pkl", "wb") as f:
+        pickle.dump(data, f, protocol=4)
+    del data
+    del vis
+    print("Finished saving Data")
+    sleep(3)
+    print("Converting masks to TF format")
+    rfi = obs.vis_rfi[:, baselines, :].compute()
+    masks = []
+    for i in range(num_baselines):
+        masks.append(np.abs(rfi[i]))
+    masks = np.expand_dims(np.array(masks), axis=-1)
+    print("Saving masks as TF dataset")
+    filename = dataset_name + "_masks"
+    save_path = os.path.join(output_dir, filename)
+    with open(save_path + ".pkl", "wb") as f:
+        pickle.dump(masks, f, protocol=4)
+
+
 def convert_to_ml_dataset(
     obs: Observation, num_baselines: int, rng: np.random.Generator
 ):
@@ -210,11 +247,11 @@ def convert_to_ml_dataset(
     return data, masks
 
 
-def save_observation(data, masks, filename, output_dir):
+def save_observation(data, filename, output_dir):
     print("Saving observation as TF dataset")
     save_path = os.path.join(output_dir, filename)
     with open(save_path + ".pkl", "wb") as f:
-        pickle.dump((data, masks), f, protocol=4)
+        pickle.dump(data, f, protocol=4)
 
 
 def plot_examples(data, masks, output_dir, num_examples=5):
@@ -263,10 +300,14 @@ def run_simulation(config: dict):
         12345,
     )
     add_astro_sources(obs, I, d_ra, d_dec)
-    add_satellite_rfi(obs, freqs, config["num_satellites"], config["satellite_rfi_amp"])
-    add_stationary_rfi(
-        obs, freqs, config["num_ground_sources"], config["ground_rfi_amp"]
-    )
+    if config["num_satellites"] > 0:
+        add_satellite_rfi(
+            obs, freqs, config["num_satellites"], config["satellite_rfi_amp"]
+        )
+    if config["num_ground_sources"] > 0:
+        add_stationary_rfi(
+            obs, freqs, config["num_ground_sources"], config["ground_rfi_amp"]
+        )
     add_gains(
         obs,
         config["G0_mean"],
@@ -278,11 +319,27 @@ def run_simulation(config: dict):
     dataset_name = generate_obs_name(obs)
     config["dataset_name"] = dataset_name
     print(f"Dataset name: {dataset_name}")
-    data, masks = convert_to_ml_dataset(obs, config["num_sample_baseline"], rng)
-    save_observation(data, masks, dataset_name, output_dir)
-    plot_examples(data, masks, output_dir)
+    dataset_output_dir = os.path.join(output_dir, dataset_name)
+    os.makedirs(dataset_output_dir, exist_ok=True)
+    convert_save_data(
+        obs, config["num_sample_baseline"], rng, dataset_name, dataset_output_dir
+    )
+    # data, masks = convert_to_ml_dataset(obs, config["num_sample_baseline"], rng)
+    # save_observation(data, masks, dataset_name, dataset_output_dir)
+    # plot_examples(data, masks, dataset_output_dir,
+    #              num_examples=min(config["num_sample_baseline"], 5))
 
 
 if __name__ == "__main__":
-    config = get_default_config()
-    run_simulation(config)
+    CONFIG_FILES = [
+        "config_0SAT_0GRD.json",
+        "config_1SAT_0GRD.json",
+        "config_1SAT_3GRD.json",
+        "config_2SAT_0GRD.json",
+        "config_2SAT_3GRD.json",
+    ]
+    CONFIG_FILES = ["config_2SAT_3GRD.json"]
+    for config_file in CONFIG_FILES:
+        print(config_file)
+        config = load_config_file("./configs", config_file)
+        run_simulation(config)
