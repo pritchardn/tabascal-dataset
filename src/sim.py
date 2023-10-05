@@ -1,14 +1,14 @@
-import os
 import json
+import os
 
-import matplotlib.pyplot as plt
 import dask.array as da
+import matplotlib.pyplot as plt
 import numpy as np
 from coolname import generate_slug
+from tabascal.dask.interferometry import time_avg
 from tabascal.dask.observation import Observation
 from tabascal.utils.sky import generate_random_sky
 from tabascal.utils.tools import load_antennas
-from tabascal.dask.interferometry import time_avg
 from tqdm import tqdm
 
 from utils import load_config_file
@@ -207,16 +207,36 @@ def convert_to_ml_format(
     baselines = sorted(rng.choice(obs.n_bl, size=num_baselines, replace=False))
 
     vis = obs.vis_obs[:, baselines, :].astype("float32")
-    vis = np.abs(vis[:]).astype("float32")
+    vis = np.abs(vis).astype("float32")
     vis = np.expand_dims(vis, axis=-1)
     masks = time_avg(obs.vis_rfi, obs.n_int_samples)
     masks = masks[:, baselines, :]
-    masks = np.abs(masks[:] > 0).astype("float32")
+    masks = np.abs(masks).astype("float32")
     masks = np.expand_dims(masks, axis=-1)
+    # masks = np.isclose(masks > 0, 1, 0).astype('bool')
+    masks_16 = np.greater(masks, 16.0).astype("bool")
+    masks_0 = np.greater(masks, 0.0).astype("bool")
+    masks_1 = np.greater(masks, 1.0).astype("bool")
+    masks_2 = np.greater(masks, 2.0).astype("bool")
+    masks_4 = np.greater(masks, 4.0).astype("bool")
+    masks_8 = np.greater(masks, 8.0).astype("bool")
+    # masks = np.invert(np.isclose(masks, 0.0, rtol=1e-1).astype('bool'))
 
     print("Saving data to HDF5")
     output_filename = os.path.join(output_dir, f"{dataset_name}.hdf5")
-    da.to_hdf5(output_filename, {"vis": vis, "masks": masks})
+    da.to_hdf5(
+        output_filename,
+        {
+            "vis": vis,
+            "masks_orig": masks,
+            "masks_16": masks_16,
+            "masks_0": masks_0,
+            "masks_1": masks_1,
+            "masks_2": masks_2,
+            "masks_4": masks_4,
+            "masks_8": masks_8,
+        },
+    )
 
 
 def plot_examples(data, masks, output_dir, num_examples=5):
@@ -297,10 +317,10 @@ def run_simulation(config: dict):
 
 if __name__ == "__main__":
     CONFIG_FILES = [
-        #"config_0SAT_0GRD.json",
-        #"config_1SAT_0GRD.json",
-        #"config_1SAT_3GRD.json",
-        #"config_2SAT_0GRD.json",
+        "config_0SAT_0GRD.json",
+        "config_1SAT_0GRD.json",
+        "config_1SAT_3GRD.json",
+        "config_2SAT_0GRD.json",
         "config_2SAT_3GRD.json",
     ]
     for config_file in CONFIG_FILES:
