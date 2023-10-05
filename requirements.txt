@@ -1,0 +1,6 @@
+coolname==2.2.0
+dask==2023.9.1
+matplotlib==3.7.3
+numpy==1.25.2
+tabascal.egg==info
+tqdm==4.66.1
