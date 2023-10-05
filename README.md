@@ -1,5 +1,7 @@
 # Tabascal-dataset
 
+[![DOI](https://zenodo.org/badge/691956309.svg)](https://zenodo.org/badge/latestdoi/691956309)
+
 Code to generate example datasets with tabascal.
 The datasets and their descriptions are stored on Zenodo.
 
